@@ -5186,323 +5186,100 @@ end
         end
     end
 
-    -- Replace your existing KillEnemy function with this version (keeps your original helpers like GetHRP, GetCharacter, GetPlayer, UseMove, etc).
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-
-local function destroyQuestStickOnPart(part)
-    if not part then return end
-    for _, child in pairs(part:GetChildren()) do
-        if type(child.Name) == "string" and child.Name:match("^QuestStick_") then
-            pcall(function() child:Destroy() end)
+    local function KillEnemy(Enemy)
+        if not Enemy then return end
+        local enemyHRP = Enemy:FindFirstChild("HumanoidRootPart")
+        local enemyHumanoid = Enemy:FindFirstChildWhichIsA("Humanoid")
+        local enemyHealth = Enemy:FindFirstChild("Health")
+        if not (enemyHRP and enemyHumanoid and enemyHealth) or enemyHealth.Value <= 0 then
+            return
         end
-    end
-end
 
-local function destroyCurrentSticks(stickRefs)
-    if not stickRefs then return end
-    -- destroy objects we created and any matching name children on their parents
-    for _, obj in pairs(stickRefs or {}) do
-        if obj and obj.Parent then
-            pcall(function() obj:Destroy() end)
-        end
-    end
-end
+        local oldPos
+        local hrp = GetHRP()
+        if hrp then oldPos = hrp.CFrame end
 
-local function safeTweenPartToCFrame(part, targetCFrame, maxSeconds)
-    if not part or not targetCFrame then return end
-    local distance = (part.Position - targetCFrame.Position).Magnitude
-    local time = math.clamp(distance / 40, 0, (maxSeconds or 2))
-    if time <= 0 then
-        pcall(function() part.CFrame = targetCFrame end)
-        return
-    end
-    local tweenInfo = TweenInfo.new(math.min(time, maxSeconds or 2), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(part, tweenInfo, {CFrame = targetCFrame})
-    tween:Play()
-    tween.Completed:Wait()
-end
+        local FocusCam = nil
 
-local function KillEnemy(Enemy)
-    if not Enemy then return end
-    local enemyHRP = Enemy:FindFirstChild("HumanoidRootPart")
-    local enemyHumanoid = Enemy:FindFirstChildWhichIsA("Humanoid")
-    local enemyHealth = Enemy:FindFirstChild("Health")
-    if not (enemyHRP and enemyHumanoid and enemyHealth) or enemyHealth.Value <= 0 then
-        return
-    end
-
-    local oldPos
-    local hrp = GetHRP()
-    if hrp then oldPos = hrp.CFrame end
-
-    local FocusCam = nil
-
-    -- Track the current stick objects so we can destroy them reliably when switching/dying
-    local currentStickRefs = {}
-    local currentStickEnemyHRP = nil
-
-    while Enemy and Enemy.Parent and enemyHRP and enemyHumanoid and enemyHealth and enemyHealth.Value > 0 do
-        if not getgenv().NPCFarmEnabled and not getgenv().QuestFarmEnabled then break end
-        if getgenv().QuestFarmEnabled then
-            local ply = GetPlayer()
-            if ply and ply:FindFirstChild("PlayerStats") and ply.PlayerStats:FindFirstChild("QuestProgress") and ply.PlayerStats:FindFirstChild("QuestMaxProgress") then
-                if ply.PlayerStats.QuestProgress.Value >= ply.PlayerStats.QuestMaxProgress.Value then
-                    getgenv().CompletedQuest = true
-                    break
+        while Enemy and Enemy.Parent and enemyHRP and enemyHumanoid and enemyHealth and enemyHealth.Value > 0 do
+            if not getgenv().NPCFarmEnabled and not getgenv().QuestFarmEnabled then break end
+            if getgenv().QuestFarmEnabled then
+                local ply = GetPlayer()
+                if ply and ply:FindFirstChild("PlayerStats") and ply.PlayerStats:FindFirstChild("QuestProgress") and ply.PlayerStats:FindFirstChild("QuestMaxProgress") then
+                    if ply.PlayerStats.QuestProgress.Value >= ply.PlayerStats.QuestMaxProgress.Value then
+                        getgenv().CompletedQuest = true
+                        break
+                    end
                 end
             end
-        end
 
-        -- Refresh references at top of loop
-        enemyHRP = Enemy:FindFirstChild("HumanoidRootPart")
-        enemyHumanoid = Enemy:FindFirstChildWhichIsA("Humanoid")
-        enemyHealth = Enemy:FindFirstChild("Health")
-
-        if not (enemyHRP and enemyHumanoid and enemyHealth) or enemyHealth.Value <= 0 then
-            break
-        end
-
-        local Character = GetCharacter()
-        if not Character then break end
-
-        -- ensure stand/stand equip logic remains same
-        if getgenv().QuestMethod == "With Stand" then
-            if not HasStand() then
-                local success = CollectRokaArrow()
-                if not success then return end
+            enemyHRP = Enemy:FindFirstChild("HumanoidRootPart")
+            enemyHumanoid = Enemy:FindFirstChildWhichIsA("Humanoid")
+            enemyHealth = Enemy:FindFirstChild("Health")
+            if not (enemyHRP and enemyHumanoid and enemyHealth) or enemyHealth.Value <= 0 then
+                task.wait(0.215)
+                break
             end
-            EquipStand()
-        else
-            EquipStand()
+
+            local Character = GetCharacter()
+            if Character and Character:FindFirstChildWhichIsA("Humanoid") and Character:FindFirstChildWhichIsA("Humanoid").Health > 0 then
+if getgenv().QuestMethod == "With Stand" then
+    if not HasStand() then
+        local success = CollectRokaArrow()
+        if not success then
+            return
         end
+    end
+    EquipStand()
+else
+    EquipStand()
+end
 
-        -- ensure FocusCam points to the current enemyHRP
-        if Character:FindFirstChild("FocusCam") == nil then
-            FocusCam = Instance.new("ObjectValue", Character)
-            FocusCam.Name = "FocusCam"
-            FocusCam.Value = enemyHRP
-        else
-            local camVal = Character:FindFirstChild("FocusCam")
-            if camVal then camVal.Value = enemyHRP end
-        end
+                if Character:FindFirstChild("FocusCam") == nil then
+                    FocusCam = Instance.new("ObjectValue", Character)
+                    FocusCam.Name = "FocusCam"
+                    FocusCam.Value = enemyHRP
+                else
+                    local camVal = Character:FindFirstChild("FocusCam")
+                    if camVal then camVal.Value = enemyHRP end
+                end
 
-        -- If we changed enemy (or the current sticks reference a different enemy), clear old sticks
-        if currentStickEnemyHRP and currentStickEnemyHRP ~= enemyHRP then
-            -- destroy the aligns/attachments we created and any sibling QuestStick_ objects on the previous enemy HRP
-            destroyCurrentSticks(currentStickRefs)
-            destroyQuestStickOnPart(currentStickEnemyHRP)
-            currentStickRefs = {}
-            currentStickEnemyHRP = nil
-            task.wait(0.08) -- brief wait so objects are fully removed
-            -- tween up a bit to avoid snapping straight into the new enemy
-            local hrpNow = GetHRP()
-            if hrpNow and hrpNow.Parent then
-                local exitCFrame = hrpNow.CFrame + Vector3.new(0, 10, 0)
-                safeTweenPartToCFrame(hrpNow, exitCFrame, 0.45)
-            end
-        end
-
-        -- movement + sticking logic
-        if getgenv().UseTweenMethod then
-            local hrpLocal = Character.PrimaryPart
-            if not hrpLocal then return end
-
-            if GetPlayer().PlayerStats and GetPlayer().PlayerStats.Stand and GetPlayer().PlayerStats.Stand.Value ~= "None"
-                and Character:FindFirstChild("StandMorph") and Character.StandMorph.PrimaryPart then
-
-                local standHRP = Character.StandMorph.PrimaryPart
-                local targetStandCFrame = enemyHRP.CFrame - enemyHRP.CFrame.LookVector * 1.1
-                local targetPlayerPos = targetStandCFrame.Position + targetStandCFrame.LookVector * math.random(-3, -2) + Vector3.new(0, -35, 0)
-
-                local distance = (targetPlayerPos - hrpLocal.Position).Magnitude
-
-                if distance > 10 then
-                    -- virtual anchor tween (same idea as your code)
-                    local virtualAnchor = Instance.new("Part")
-                    virtualAnchor.Anchored = true
-                    virtualAnchor.CanCollide = false
-                    virtualAnchor.Transparency = 1
-                    virtualAnchor.Size = Vector3.new(1, 1, 1)
-                    virtualAnchor.CFrame = hrpLocal.CFrame
-                    virtualAnchor.Parent = workspace.Terrain
-
-                    local tweenInfo = TweenInfo.new(math.min(distance / 60, 3), Enum.EasingStyle.Linear)
-                    local targetCFrame = CFrame.new(targetPlayerPos) * CFrame.Angles(0, math.atan2(targetStandCFrame.LookVector.X, targetStandCFrame.LookVector.Z), 0)
-                    local tween = TweenService:Create(virtualAnchor, tweenInfo, {CFrame = targetCFrame})
-
-                    local connection
-                    connection = RunService.Heartbeat:Connect(function()
-                        if virtualAnchor and virtualAnchor.Parent then
-                            hrpLocal.CFrame = virtualAnchor.CFrame
-                            hrpLocal.AssemblyLinearVelocity = Vector3.zero
-                            hrpLocal.AssemblyAngularVelocity = Vector3.zero
-                            if standHRP and standHRP.Parent then
-                                standHRP.CFrame = virtualAnchor.CFrame + Vector3.new(0, 35, 0)
-                            end
+                if GetPlayer().PlayerStats and GetPlayer().PlayerStats.Stand and GetPlayer().PlayerStats.Stand.Value ~= "None" and Character:FindFirstChild("StandMorph") and Character.StandMorph.PrimaryPart then
+                    pcall(function()
+                        Character.StandMorph.PrimaryPart.CFrame = enemyHRP.CFrame - enemyHRP.CFrame.LookVector * 1.1
+                        if Character.PrimaryPart and Character.StandMorph.PrimaryPart then
+                            Character.PrimaryPart.CFrame = Character.StandMorph.PrimaryPart.CFrame + Character.StandMorph.PrimaryPart.CFrame.LookVector * math.random(-3, -2) + Vector3.new(0, -35, 0)
                         end
                     end)
-
-                    tween:Play()
-                    tween.Completed:Wait()
-                    if connection then connection:Disconnect() end
-                    if virtualAnchor and virtualAnchor.Parent then virtualAnchor:Destroy() end
-                end
-
-                -- Now create precise sticking aligns (destroy any previous ones first)
-                destroyCurrentSticks(currentStickRefs)
-                currentStickRefs = {}
-
-                -- PLAYER attachments/aligns
-                local attA = Instance.new("Attachment")
-                attA.Name = "QuestStick_AttA"
-                attA.Parent = hrpLocal
-
-                local attB = Instance.new("Attachment")
-                attB.Name = "QuestStick_AttB"
-                attB.Parent = enemyHRP
-                attB.Position = enemyHRP.CFrame:PointToObjectSpace(enemyHRP.Position - enemyHRP.CFrame.LookVector * 2.3 + Vector3.new(0, -35, 0))
-
-                local alignPos = Instance.new("AlignPosition")
-                alignPos.Name = "QuestStick_AlignPos"
-                alignPos.Attachment0 = attA
-                alignPos.Attachment1 = attB
-                alignPos.MaxForce = 1e7
-                alignPos.Responsiveness = 200
-                alignPos.RigidityEnabled = false
-                alignPos.Parent = hrpLocal
-
-                local alignOri = Instance.new("AlignOrientation")
-                alignOri.Name = "QuestStick_AlignOri"
-                alignOri.Attachment0 = attA
-                alignOri.Attachment1 = attB
-                alignOri.MaxTorque = 1e7
-                alignOri.Responsiveness = 200
-                alignOri.Parent = hrpLocal
-
-                table.insert(currentStickRefs, attA)
-                table.insert(currentStickRefs, attB)
-                table.insert(currentStickRefs, alignPos)
-                table.insert(currentStickRefs, alignOri)
-
-                -- STAND attachments/aligns
-                if standHRP and standHRP.Parent and not standHRP:FindFirstChild("QuestStick_AttA") then
-                    local standAttA = Instance.new("Attachment")
-                    standAttA.Name = "QuestStick_AttA"
-                    standAttA.Parent = standHRP
-
-                    local standAttB = Instance.new("Attachment")
-                    standAttB.Name = "QuestStick_AttB"
-                    standAttB.Parent = enemyHRP
-                    standAttB.Position = enemyHRP.CFrame:PointToObjectSpace(enemyHRP.Position - enemyHRP.CFrame.LookVector * 1.1)
-
-                    local standAlignPos = Instance.new("AlignPosition")
-                    standAlignPos.Name = "QuestStick_AlignPos"
-                    standAlignPos.Attachment0 = standAttA
-                    standAlignPos.Attachment1 = standAttB
-                    standAlignPos.MaxForce = 1e7
-                    standAlignPos.Responsiveness = 200
-                    standAlignPos.RigidityEnabled = false
-                    standAlignPos.Parent = standHRP
-
-                    local standAlignOri = Instance.new("AlignOrientation")
-                    standAlignOri.Name = "QuestStick_AlignOri"
-                    standAlignOri.Attachment0 = standAttA
-                    standAlignOri.Attachment1 = standAttB
-                    standAlignOri.MaxTorque = 1e7
-                    standAlignOri.Responsiveness = 200
-                    standAlignOri.Parent = standHRP
-
-                    table.insert(currentStickRefs, standAttA)
-                    table.insert(currentStickRefs, standAttB)
-                    table.insert(currentStickRefs, standAlignPos)
-                    table.insert(currentStickRefs, standAlignOri)
-                end
-
-                currentStickEnemyHRP = enemyHRP
-
-            else
-                -- WITHOUT STAND MODE: simple tween / snap
-                local hrpLocal = Character.PrimaryPart
-                local targetPos = enemyHRP.CFrame - enemyHRP.CFrame.LookVector * 2.3
-                local distance = (targetPos.Position - hrpLocal.Position).Magnitude
-                if distance > 3 then
-                    local tweenInfo = TweenInfo.new(math.min(distance / 50, 2), Enum.EasingStyle.Linear)
-                    local tween = TweenService:Create(hrpLocal, tweenInfo, {CFrame = targetPos})
-                    tween:Play()
-                    tween.Completed:Wait()
                 else
-                    pcall(function() hrpLocal.CFrame = targetPos end)
-                end
-            end
-        else
-            -- Instant (non-tween) method - still ensure we clear/create precise sticks per enemy
-            destroyCurrentSticks(currentStickRefs)
-            currentStickRefs = {}
-            currentStickEnemyHRP = nil
-
-            if GetPlayer().PlayerStats and GetPlayer().PlayerStats.Stand and GetPlayer().PlayerStats.Stand.Value ~= "None"
-                and Character:FindFirstChild("StandMorph") and Character.StandMorph.PrimaryPart then
-                pcall(function()
-                    Character.StandMorph.PrimaryPart.CFrame = enemyHRP.CFrame - enemyHRP.CFrame.LookVector * 1.1
-                    if Character.PrimaryPart and Character.StandMorph.PrimaryPart then
-                        Character.PrimaryPart.CFrame = Character.StandMorph.PrimaryPart.CFrame + Character.StandMorph.PrimaryPart.CFrame.LookVector * math.random(-3, -2) + Vector3.new(0, -35, 0)
+                    if Character.PrimaryPart then
+                        pcall(function() Character.PrimaryPart.CFrame = enemyHRP.CFrame - enemyHRP.CFrame.LookVector * 2.3 end)
                     end
-                end)
-            else
-                if Character.PrimaryPart then
-                    pcall(function() Character.PrimaryPart.CFrame = enemyHRP.CFrame - enemyHRP.CFrame.LookVector * 2.3 end)
                 end
+
+                task.spawn(function() UseMove("m1") end)
+            elseif Character and Character:FindFirstChildWhichIsA("Humanoid") and Character:FindFirstChildWhichIsA("Humanoid").Health <= 0 then
+                GetPlayer().CharacterAdded:Wait()
             end
+
+            task.wait()
         end
 
-        task.spawn(function() UseMove("m1") end)
-        task.wait()
-    end
-
-    -- When loop ends (enemy died or we broke out) tidy up sticks and tween up a bit
-    destroyCurrentSticks(currentStickRefs)
-    if currentStickEnemyHRP then
-        destroyQuestStickOnPart(currentStickEnemyHRP)
-    end
-
-    local hrpAfter = GetHRP()
-    if hrpAfter then
-        -- prefer enemy position (if still present), else oldPos
-        local targetExitPos
-        if Enemy and Enemy:FindFirstChild("HumanoidRootPart") then
-            targetExitPos = Enemy.HumanoidRootPart.Position + Vector3.new(0, 20, 0)
-        elseif oldPos then
-            targetExitPos = oldPos.Position + Vector3.new(0, 15, 0)
-        else
-            targetExitPos = hrpAfter.Position + Vector3.new(0, 15, 0)
-        end
-
-        if targetExitPos then
-            if getgenv().UseTweenMethod then
-                local currentPos = hrpAfter.Position
-                local distance = (targetExitPos - currentPos).Magnitude
-                if distance > 5 then
-                    local tweenInfo = TweenInfo.new(math.min(distance / 40, 1.5), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                    local tween = TweenService:Create(hrpAfter, tweenInfo, {CFrame = CFrame.new(targetExitPos)})
-                    tween:Play()
-                    tween.Completed:Wait()
-                else
-                    pcall(function() hrpAfter.CFrame = CFrame.new(targetExitPos) end)
-                end
-            else
-                pcall(function() hrpAfter.CFrame = CFrame.new(targetExitPos) end)
+        local hrp = GetHRP()
+        if hrp then
+            if Enemy and Enemy:FindFirstChild("HumanoidRootPart") then
+                hrp.CFrame = CFrame.new(Enemy.HumanoidRootPart.Position + Vector3.new(0, 20, 0))
+            elseif oldPos then
+                hrp.CFrame = oldPos + Vector3.new(0, 15, 0)
             end
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.Velocity = Vector3.new(0, 0, 0)
         end
-
-        hrpAfter.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-        hrpAfter.Velocity = Vector3.new(0, 0, 0)
+        
+        task.wait(math.max(0.01, getgenv().QuestDelay or 0.1))
+        
+        pcall(function() if FocusCam then FocusCam:Destroy() end end)
     end
-
-    task.wait(math.max(0.01, getgenv().QuestDelay or 0.1))
-    pcall(function() if FocusCam then FocusCam:Destroy() end end)
-end
-
 
     local function GetQuest(NPC)
         if not NPC then return false end
@@ -5618,6 +5395,33 @@ end
             getgenv().TargetNPC = ""
         end
     end
+    local ExecutorSupportSection = QuestTab:Section({ Title = "Executor Support" })
+
+getgenv().ExecutorSupported = true
+
+ExecutorSupportSection:Paragraph({
+    Title = "Status",
+    Desc = "Current: This is unavailable but in next update this will come out."
+})
+
+local unsupportedParagraph = ExecutorSupportSection:Paragraph({
+    Title = "Executor Not Supported",
+    Desc = "Click the button below to use the quest farm without a supported executor. This will use an alternative Func that is for unsupported executors. Now this is Currently unavailable"
+})
+
+ExecutorSupportSection:Button({
+    Title = "Use Unsupported Executor Method",
+    Locked = true,
+    Callback = function()
+        getgenv().ExecutorSupported = false
+        notify("YBA Script", "Switched to unsupported executor method (Tweening)")
+        
+        unsupportedParagraph:Update({
+            Title = "Using Unsupported Method",
+            Desc = "Currently using tween-based farming. This method is slower but safer for your executor."
+        })
+    end
+})
 
     local QuestFarmSection = QuestTab:Section({ Title = "Quest Farm" })
 
@@ -6326,28 +6130,6 @@ NpcFarmSection:Input({
 
     notify("YBA Script", "Quest & NPC Farm features loaded!")
 end
--- NEW SECTION: Executor Support Toggle
-local ExecutorSupportSection = QuestTab:Section({ Title = "Executor Support" })
-
-getgenv().UseTweenMethod = false
-
-ExecutorSupportSection:Button({
-    Title = "Executor Not Supported? Click This",
-    Callback = function()
-        getgenv().UseTweenMethod = not getgenv().UseTweenMethod
-        
-        if getgenv().UseTweenMethod then
-            notify("YBA Script", "Tween Method ENABLED - Will tween to enemies instead of instant TP")
-        else
-            notify("YBA Script", "Tween Method DISABLED - Using instant teleport")
-        end
-    end
-})
-
-ExecutorSupportSection:Paragraph({
-    Title = "What this does:",
-    Desc = "If your executor doesn't support instant teleport (causes kicks/lag), enable this to use smooth tweening to travel to enemies instead."
-})
 
 
 LoadQuestFeatures()
