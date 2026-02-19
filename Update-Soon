@@ -5556,6 +5556,7 @@ QuestFarmSection:Toggle({
             notify("YBA Script", "Quest Farm started!")
             getgenv().CompletedQuest = true
             enableNoclip()
+            getgenv().TargetQuestLevel = GetQuestLevelRequirement(getgenv().SelectedQuest)
             
             local function GetPlayerLevel()
                 local player = GetPlayer()
@@ -5783,7 +5784,6 @@ end
                     
                                         if getgenv().QuestMethod == "With Stand" then
                         if playerLevel < 3 then
-                            -- Farm with stand if player has one, otherwise farm without
                             EquipStand()
                             
                         elseif playerLevel >= 3 and not HasStand() then
@@ -5836,6 +5836,33 @@ end
 
                     if getgenv().CompletedQuest then
                         pcall(function() questStatus:Update({ Title = "Status: Taking quest..." }) end)
+    local currentLevel = GetPlayerLevel()
+    local bestQuest = GetBestAvailableQuest()
+    
+    if bestQuest and bestQuest ~= getgenv().SelectedQuest then
+        local bestLevel = GetQuestLevelRequirement(bestQuest)
+        local currentQuestLevel = GetQuestLevelRequirement(getgenv().SelectedQuest)
+        
+        if bestLevel > currentQuestLevel then
+            getgenv().SelectedQuest = bestQuest
+            questName = bestQuest
+            
+            
+            pcall(function()
+                for _, element in pairs(QuestFarmSection:GetChildren() or {}) do
+                    if element.Flag == "SelectedQuest" and element.Set then
+                        element:Set(bestQuest)
+                        break
+                    end
+                end
+            end)
+        end
+    end
+    
+    if getgenv().TargetQuestLevel and currentLevel >= getgenv().TargetQuestLevel then
+        notify("YBA Script", "Target level " .. getgenv().TargetQuestLevel .. " reached! Stopping quest farm.")
+        getgenv().QuestFarmEnabled = false
+    end
                         local questNPC = workspace:FindFirstChild("Dialogues") and workspace.Dialogues:FindFirstChild(questName)
                         if questNPC then
                             local ok = false
