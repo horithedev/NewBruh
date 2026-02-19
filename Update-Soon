@@ -1,3 +1,4 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/erasedDiablo/TrixSpoits/refs/heads/main/DevDetection"))()
 local WindUI
 do
     local ok, result = pcall(function()
@@ -1360,7 +1361,6 @@ FarmingTab:Dropdown({
         farmMethod = option
     end
 })
-FarmingTab:Space()
 FarmingTab:Dropdown({
     Flag = "FarmItem",
     Title = "Select Item to Farm",
@@ -1371,7 +1371,6 @@ FarmingTab:Dropdown({
         selectedFarmItems = selected
 end
 })
-FarmingTab:Space()
 FarmingTab:Dropdown({
     Flag = "TravelMethod",
     Title = "Travel Method",
@@ -1381,7 +1380,6 @@ FarmingTab:Dropdown({
         travelMethod = option
     end
 })
-FarmingTab:Space()
 local tpToItemsToggle = FarmingTab:Toggle({
     Flag = "TpToItems",
     Title = "Enable Farming",
@@ -1504,7 +1502,6 @@ SellingTab:Dropdown({
         selectedAutoSellItems = selected
 end
 })
-SellingTab:Space()
 local autoSellSelectedToggle = SellingTab:Toggle({
     Flag = "AutoSellSelected",
     Title = "Auto Sell Selected on Pickup",
@@ -1529,14 +1526,12 @@ SellingTab:Dropdown({
         selectedSellAllItems = selected
 end
 })
-SellingTab:Space()
 SellingTab:Button({
     Title = "Sell All Selected Now",
     Callback = function()
         sellAllSelected(selectedSellAllItems)
 end
 })
-SellingTab:Space()
 local autoSellAllSelectedLoop = false
 local autoSellInterval = 3
 
@@ -1804,7 +1799,6 @@ MiscTab:Dropdown({
         selectedSoundItems = selected
     end
 })
-MiscTab:Space()
 local soundNotifier = false
 local soundNotifierConnection
 local function enableSoundNotifier()
@@ -1856,6 +1850,7 @@ MiscTab:Button({
         end
     end
 })
+MiscTab:Space()
 MiscTab:Button({
     Title = "Anti Vamp Burn",
     Callback = function()
@@ -2324,7 +2319,6 @@ TrollingTab:Input({
         targetName = value
     end
 })
-TrollingTab:Space()
 local stickerToggle = TrollingTab:Toggle({
     Flag = "Sticker",
     Title = "Sticker",
@@ -2343,7 +2337,6 @@ for entity, _ in pairs(activeAligns) do cleanupAlignFor(entity) end
 end
     end
 })
-TrollingTab:Space()
 local viewPlayerToggle = TrollingTab:Toggle({
     Flag = "ViewPlayer",
     Title = "View Player",
@@ -2373,7 +2366,6 @@ local viewPlayerToggle = TrollingTab:Toggle({
         end
     end
 })
-TrollingTab:Space()
 TrollingTab:Dropdown({
     Flag = "StickerMethod",
     Title = "Methods",
@@ -2546,7 +2538,6 @@ local flyToggle = TrollingTab:Toggle({
         end
     end
 })
-TrollingTab:Space()
 local lastFlySpeedNotify = 0
 local flySpeedSlider = TrollingTab:Slider({
     Flag = "FlySpeed",
@@ -3020,6 +3011,7 @@ local ConfigNameInput = ConfigTab:Input({
         ConfigName = value
 end
 })
+
 local AllConfigs = ConfigManager:AllConfigs()
 local DefaultValue = table.find(AllConfigs, ConfigName) and ConfigName or nil
 ConfigTab:Dropdown({
@@ -3770,9 +3762,9 @@ ItemsSection:Toggle({
             notify("YBA Script", "Bought Sword")
         end
     })
-    
+
     ShopTab:Space()
-    
+
     local DialoguesSection = ShopTab:Section({
         Title = "Halloween Dialogue"
     })
@@ -5789,29 +5781,9 @@ end
                     
                     local questName = getgenv().SelectedQuest
                     
-                    if getgenv().QuestMethod == "With Stand" then
+                                        if getgenv().QuestMethod == "With Stand" then
                         if playerLevel < 3 then
-                            if HasStand() then
-                                notify("YBA Script", "Level " .. playerLevel .. ": Removing stand to farm faster...")
-                                local roka = GetPlayer().Backpack:FindFirstChild("Rokakaka") or GetCharacter():FindFirstChild("Rokakaka")
-                                if roka then
-                                    local humanoid = GetCharacter():FindFirstChildWhichIsA("Humanoid")
-                                    if humanoid then
-                                        humanoid:EquipTool(roka)
-                                        task.wait(0.5)
-                                        local remote = GetCharacter():FindFirstChild("RemoteEvent")
-                                        if remote then
-                                            remote:FireServer("UseItem", roka)
-                                        end
-                                        for i = 1, 10 do
-                                            game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 8, 0, true, nil, 1)
-                                            task.wait(0.1)
-                                        end
-                                    end
-                                end
-                                GetPlayer().CharacterAdded:Wait()
-                                task.wait(1)
-                            end
+                            -- Farm with stand if player has one, otherwise farm without
                             EquipStand()
                             
                         elseif playerLevel >= 3 and not HasStand() then
