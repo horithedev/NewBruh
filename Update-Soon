@@ -5570,13 +5570,11 @@ local playerLevel = GetPlayerLevel()
 local hasStand = HasStand()
 
 if playerLevel <= 2 and not hasStand and getgenv().QuestMethod == "With Stand" then
-notify("YBA Script", "Level " .. playerLevel .. " detected! Completing Level 1 quest WITHOUT stand first...")
 
 local originalMethod = getgenv().QuestMethod
 getgenv().QuestMethod = "Without Stand"
 
 getgenv().SelectedQuest = "Officer Sam [Lvl. 1+]"
-notify("YBA Script", "Auto-selected Level 1 quest: Officer Sam")
 
 local startTime = tick()
 local maxWait = 300
@@ -5585,7 +5583,6 @@ while getgenv().QuestFarmEnabled and playerLevel <= 2 and tick() - startTime < m
 playerLevel = GetPlayerLevel()
 
 if playerLevel >= 3 then
-notify("YBA Script", "Leveled up to " .. playerLevel .. "! Now getting stand...")
 break
 end
 
@@ -5615,10 +5612,8 @@ task.wait(0.1)
 end
 
 if playerLevel >= 3 then
-notify("YBA Script", "Collecting arrows and rokakaka for stand...")
 local success = CollectRokaArrow()
 if success then
-notify("YBA Script", "Stand obtained! Switching to WITH STAND mode...")
 local character = GetCharacter()
 local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
 if humanoid then
@@ -5632,7 +5627,6 @@ end
 end
 
 getgenv().QuestMethod = originalMethod
-notify("YBA Script", "Now farming WITH STAND enabled!")
 end
 
 local function GetPlayerLevel()
@@ -5729,7 +5723,7 @@ questCompletedConn = hud.ChildAdded:Connect(function(Child)
 if Child and Child.Name == "QuestCompleted" then
 getgenv().CompletedQuest = true
 pcall(function() questStatus:Update({ Title = "Status: Quest Completed!" }) end)
-notify("YBA Script", "Quest completed! Getting next one...")
+notify("YBA Script", "Quest is completed Lazy ass")
 end
 end)
 end
@@ -5750,7 +5744,6 @@ if bestQuestLevel > targetQuestLevel and bestQuestLevel > selectedQuestLevel the
 getgenv().SelectedQuest = bestQuest
 UpdateQuestDropdown(bestQuest)
 getgenv().CompletedQuest = true
-notify("YBA Script", "Leveled up! Switching to: " .. bestQuest)
 task.wait(0.5)
 end
 end
@@ -5764,7 +5757,6 @@ local selectedLevel = GetQuestLevelRequirement(selectedQuest)
 if selectedLevel > playerLevel then
 local bestQuest = GetBestAvailableQuest()
 if bestQuest and bestQuest ~= selectedQuest then
-notify("YBA Script", "Level " .. playerLevel .. " is not enough for " .. selectedQuest .. " (Req: " .. selectedLevel .. "). Switching to: " .. bestQuest)
 getgenv().SelectedQuest = bestQuest
 pcall(function()
 local dropdown = QuestFarmSection:FindFirstChild("SelectedQuest")
@@ -5773,7 +5765,6 @@ dropdown:Set(bestQuest)
 end
 end)
 elseif not bestQuest then
-notify("YBA Script", "Level " .. playerLevel .. " is not enough for " .. selectedQuest .. ". No available quests found!")
 task.wait(3)
 continue
 end
@@ -5836,10 +5827,35 @@ end
 
 if getgenv().CompletedQuest then
 pcall(function() questStatus:Update({ Title = "Status: Taking quest..." }) end)
+local currentLevel = GetPlayerLevel()
 
-local currentLevel = GetPlayerLevel() 
+if not getgenv().LockedQuest then
+local bestQuest = GetBestAvailableQuest()
 
+if bestQuest and bestQuest ~= getgenv().SelectedQuest then
+local bestLevel = GetQuestLevelRequirement(bestQuest)
+local targetLevel = getgenv().TargetQuestLevel or 999
 
+if currentLevel < targetLevel and bestLevel <= targetLevel then
+getgenv().SelectedQuest = bestQuest
+questName = bestQuest
+
+pcall(function()
+for _, element in pairs(QuestFarmSection:GetChildren() or {}) do
+if element.Flag == "SelectedQuest" and element.Set then
+element:Set(bestQuest)
+break
+end
+end
+end)
+end
+end
+end
+
+if getgenv().TargetQuestLevel and currentLevel >= getgenv().TargetQuestLevel then
+getgenv().TargetQuestLevel = nil
+getgenv().LockedQuest = getgenv().SelectedQuest
+end
 local questNPC = workspace:FindFirstChild("Dialogues") and workspace.Dialogues:FindFirstChild(questName)
 if questNPC then
 local ok = false
@@ -5847,10 +5863,8 @@ pcall(function() ok = GetQuest(questNPC) end)
 if ok then
 getgenv().CompletedQuest = false
 pcall(UpdateQuestStatus)
-task.wait(getgenv().QuestDelay)
 else
 pcall(function() questStatus:Update({ Title = "Status: Failed to take quest, waiting..." }) end)
-task.wait(getgenv().QuestDelay)
 end
 else
 pcall(function() questStatus:Update({ Title = "Status: Quest NPC not found" }) end)
@@ -5868,7 +5882,6 @@ if not getgenv().QuestFarmEnabled then break end
 if v.Name == enemyName and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Health") and v.Health.Value > 0 then
 local currentLvl = GetPlayerLevel()
 if currentLvl >= 3 and not HasStand() and getgenv().QuestMethod == "With Stand" then
-notify("YBA Script", "Level 3 reached! Breaking to get stand...")
 break
 end
 
